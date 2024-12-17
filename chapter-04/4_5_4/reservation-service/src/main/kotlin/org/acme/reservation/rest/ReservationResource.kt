@@ -1,10 +1,11 @@
 package org.acme.reservation.rest
 
 import io.quarkus.logging.Log
+import io.smallrye.graphql.client.GraphQLClient
 import jakarta.ws.rs.*
 import jakarta.ws.rs.core.MediaType
 import org.acme.reservation.inventory.Car
-import org.acme.reservation.inventory.InventoryClient
+import org.acme.reservation.inventory.GraphQLInventoryClient
 import org.acme.reservation.rental.RentalClient
 import org.acme.reservation.reservation.Reservation
 import org.acme.reservation.reservation.ReservationsRepository
@@ -16,7 +17,7 @@ import java.time.LocalDate
 @Produces(MediaType.APPLICATION_JSON)
 class ReservationResource(
     private val reservationsRepository: ReservationsRepository,
-    private val inventoryClient: InventoryClient,
+    @GraphQLClient("inventory") private val inventoryClient: GraphQLInventoryClient,
     @RestClient private val rentalClient: RentalClient
 ) {
     @Consumes(MediaType.APPLICATION_JSON)
