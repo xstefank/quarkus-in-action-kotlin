@@ -12,22 +12,23 @@ import org.acme.reservation.reservation.ReservationsRepository
 import org.eclipse.microprofile.rest.client.inject.RestClient
 import org.jboss.resteasy.reactive.RestQuery
 import java.time.LocalDate
+import java.util.stream.Collectors
 
 @Path("reservation")
 @Produces(MediaType.APPLICATION_JSON)
 class ReservationResource(
     private val reservationsRepository: ReservationsRepository,
     @GraphQLClient("inventory") private val inventoryClient: GraphQLInventoryClient,
-    @RestClient private val rentalClient: RentalClient
+    @RestClient private val rentalClient: RentalClient,
+    private val context: jakarta.ws.rs.core.SecurityContext
 ) {
     @Consumes(MediaType.APPLICATION_JSON)
     @POST
     fun make(reservation: Reservation): Reservation {
+        reservation.userId = context.userPrincipal?.let { context.userPrincipal.name } ?: "anonymous"
         val result = reservationsRepository.save(reservation)
-        // this is just a dummy value for the time being
-        val userId = "x"
         if (reservation.startDay == LocalDate.now()) {
-            val rental = rentalClient.start(userId, result.id)
+            val rental = rentalClient.start(reservation.userId, result.id)
             Log.info("Successfully started rental $rental")
         }
         return result
@@ -54,4 +55,15 @@ class ReservationResource(
         }
         return carsById.values
     }
+
+    @GET
+    @Path("all")
+    fun allReservations(): Collection<Reservation> {
+        val userId = context.userPrincipal?.let { context.userPrincipal.name } ?: null
+        return reservationsRepository.findAll()
+            .stream()
+            .filter { reservation: Reservation -> userId == null || userId == reservation.userId }
+            .collect(Collectors.toList())
+    }
+
 }
