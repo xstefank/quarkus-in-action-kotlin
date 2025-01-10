@@ -1,36 +1,37 @@
 package org.acme.inventory.service
 
+import io.quarkus.logging.Log
 import jakarta.inject.Inject
-import org.acme.inventory.database.CarInventory
+import jakarta.transaction.Transactional
 import org.acme.inventory.model.Car
+import org.acme.inventory.repository.CarRepository
 import org.eclipse.microprofile.graphql.GraphQLApi
 import org.eclipse.microprofile.graphql.Mutation
 import org.eclipse.microprofile.graphql.Query
 
 @GraphQLApi
-class GraphQLInventoryService(@Inject var inventory: CarInventory) {
+class GraphQLInventoryService(@Inject var carRepository: CarRepository) {
 
     @Query
-    fun cars(): List<Car>? {
-        return inventory.getCars()
+    fun cars(): List<Car> {
+        return carRepository.listAll()
     }
 
+    @Transactional
     @Mutation
     fun register(car: Car): Car {
-        car.id = CarInventory.ids.incrementAndGet()
-        inventory.getCars()!!.add(car)
+        carRepository.persist(car)
+        Log.info("Persisting $car")
         return car
     }
 
+    @Transactional
     @Mutation
     fun remove(licensePlateNumber: String): Boolean {
-        val cars = inventory.getCars()
-        val toBeRemoved = cars!!.stream()
-            .filter { car: Car -> car.licensePlateNumber == licensePlateNumber }.findAny()
-        return if (toBeRemoved.isPresent) {
-            cars.remove(toBeRemoved.get())
-        } else {
-            false
-        }
+        val toBeRemoved = carRepository.findByLicensePlateNumberOptional(licensePlateNumber)
+        return toBeRemoved?.let {
+            carRepository.delete(toBeRemoved)
+            true
+        } ?: false
     }
 }
